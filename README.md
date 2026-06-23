@@ -23,6 +23,7 @@ El proyecto incluye:
 - Completa `itc_homologated_code` a 3 digitos cuando es numerico.
 - Permite generar una version extendida con `stage_type=PILOTO`.
 - En la version extendida, cambia `response_type=ALERT` por `response_type=WARNING`.
+- La version extendida incluye los campos de titulo, botones, enlace y categoria.
 
 ## Requisitos
 
@@ -136,6 +137,11 @@ Columnas reconocidas:
 | `transactionCode` | Codigo de transaccion. |
 | `itcHomologatedCode` | Codigo homologado ITC. |
 | `responseType` | Tipo de respuesta. |
+| `title` | Titulo que se muestra al usuario. Solo se exporta en la version extendida. |
+| `buttonContent` | Contenido o accion del primer boton. Solo se exporta en la version extendida. |
+| `buttonContent2` | Contenido o accion del segundo boton. Solo se exporta en la version extendida. |
+| `link` | Enlace de redireccionamiento. Solo se exporta en la version extendida. |
+| `categoryType` | Categoria visual del mensaje. Solo se exporta en la version extendida. |
 
 Si falta una columna, el CSV se genera igual y esa columna queda vacia.
 
@@ -153,7 +159,8 @@ Reglas:
 
 - `status` se crea vacia.
 - `reason` se crea vacia.
-- Todos los valores van entre comillas dobles.
+- Los encabezados se generan sin comillas.
+- Todos los valores de las filas van entre comillas dobles.
 - `itc_homologated_code` se rellena a 3 digitos si es numerico:
   - `1` -> `001`
   - `13` -> `013`
@@ -164,15 +171,31 @@ Reglas:
 Columnas generadas, en este orden:
 
 ```text
-technical_code,channel,origin,id_language,technical_exception,user_message,message_description,type,message_type,transaction_code,itc_homologated_code,response_type,stage_type,status,reason
+technical_code,channel,origin,id_language,stage_type,technical_exception,user_message,message_description,type,message_type,transaction_code,itc_homologated_code,response_type,title,button_content,button_content_2,link,category_type
 ```
 
 Reglas adicionales:
 
+- La primera fila con los nombres de las columnas se genera sin comillas.
+- Las filas de datos se generan con todos sus valores entre comillas dobles.
 - `stage_type` siempre queda con valor `PILOTO`.
-- `stage_type` queda antes de `status` y `reason`.
+- `stage_type` queda despues de `id_language`.
 - Si `response_type` es `ALERT`, en el extendido se cambia a `WARNING`.
+- `channel`, `id_language`, `type`, `message_type`, `response_type` y `category_type` se generan en mayusculas.
+- Si no existen `title`, `buttonContent`, `buttonContent2`, `link` o `categoryType` en el Excel, se generan vacios.
+- La version extendida no incluye las columnas `status` y `reason`.
 - El CSV normal no cambia `ALERT`.
+
+Valores esperados en los campos catalogados:
+
+| Campo | Valores o formato |
+| --- | --- |
+| `stage_type` | `PILOTO` |
+| `id_language` | Por ejemplo: `SPA`, `ENG` |
+| `type` | Por ejemplo: `BACK`, `PRODUCTO` |
+| `message_type` | `EXITOSO`, `TECNICAMENTE_EXITOSO`, `NO_EXITOSO` |
+| `response_type` | `SUCCESS`, `ERROR`, `WARNING`, `INFO`, `EVENTUALIDAD` |
+| `category_type` | `TOAST`, `INLINE`, `TOTALPAGE`, `PARCIALPAGE`, `MODAL`, `DATA TEXT`, `INPUT` |
 
 ## Archivos del proyecto
 

@@ -38,6 +38,7 @@ EXTENDED_OUTPUT_COLUMNS = [
     "channel",
     "origin",
     "id_language",
+    "stage_type",
     "technical_exception",
     "user_message",
     "message_description",
@@ -46,9 +47,11 @@ EXTENDED_OUTPUT_COLUMNS = [
     "transaction_code",
     "itc_homologated_code",
     "response_type",
-    "stage_type",
-    "status",
-    "reason",
+    "title",
+    "button_content",
+    "button_content_2",
+    "link",
+    "category_type",
 ]
 
 INPUT_TO_OUTPUT = {
@@ -64,6 +67,20 @@ INPUT_TO_OUTPUT = {
     "transactionCode": "transaction_code",
     "itcHomologatedCode": "itc_homologated_code",
     "responseType": "response_type",
+    "title": "title",
+    "buttonContent": "button_content",
+    "buttonContent2": "button_content_2",
+    "link": "link",
+    "categoryType": "category_type",
+}
+
+EXTENDED_UPPERCASE_COLUMNS = {
+    "channel",
+    "id_language",
+    "type",
+    "message_type",
+    "response_type",
+    "category_type",
 }
 
 
@@ -127,7 +144,7 @@ def format_csv_value(value):
 
 def write_csv(output_path, rows, columns):
     with output_path.open("w", encoding="utf-8-sig", newline="") as csv_file:
-        csv_file.write(",".join(format_csv_value(column) for column in columns))
+        csv_file.write(",".join(columns))
         csv_file.write("\n")
 
         for row in rows:
@@ -243,6 +260,9 @@ def convert_excel_to_csv(input_path, output_path=None, sheet_name=None, extended
             output_row["stage_type"] = "PILOTO"
 
         for input_column, output_column in INPUT_TO_OUTPUT.items():
+            if output_column not in output_row:
+                continue
+
             source_column = normalized_columns.get(normalize_column_name(input_column))
             if source_column is not None:
                 value = clean_cell(row[source_column])
@@ -257,6 +277,10 @@ def convert_excel_to_csv(input_path, output_path=None, sheet_name=None, extended
 
         if extended and output_row["response_type"].strip().upper() == "ALERT":
             output_row["response_type"] = "WARNING"
+
+        if extended:
+            for column in EXTENDED_UPPERCASE_COLUMNS:
+                output_row[column] = output_row[column].upper()
 
         output_rows.append(output_row)
 
