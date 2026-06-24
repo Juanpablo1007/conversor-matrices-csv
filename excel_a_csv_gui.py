@@ -4,7 +4,7 @@ from tkinter import BOTH, END, LEFT, RIGHT, X, filedialog, messagebox
 from tkinter import Tk
 from tkinter import ttk
 
-from excel_a_csv import convert_excel_to_csv
+from excel_a_csv import convert_excel_to_csv, convert_normal_csv_to_extended
 
 
 class ConverterApp:
@@ -41,7 +41,7 @@ class ConverterApp:
         ttk.Label(main, text="Conversor de matrices de errores", style="Header.TLabel").pack(anchor="w")
         ttk.Label(
             main,
-            text="Selecciona uno o varios archivos Excel y genera CSV con el formato bancario requerido.",
+            text="Selecciona matrices Excel o CSV normales y genera el formato bancario requerido.",
             style="Muted.TLabel",
         ).pack(anchor="w", pady=(4, 18))
 
@@ -80,7 +80,7 @@ class ConverterApp:
             selectmode="browse",
             height=10,
         )
-        self.file_list.heading("path", text="Archivo Excel")
+        self.file_list.heading("path", text="Archivo de entrada")
         self.file_list.heading("status", text="Estado")
         self.file_list.column("path", width=560, minwidth=360)
         self.file_list.column("status", width=170, minwidth=130, anchor="center")
@@ -119,9 +119,11 @@ class ConverterApp:
             return
 
         selected = filedialog.askopenfilenames(
-            title="Seleccionar matrices Excel",
+            title="Seleccionar matrices Excel o CSV normales",
             filetypes=[
+                ("Matrices Excel y CSV", "*.xlsx *.xlsm *.csv"),
                 ("Archivos Excel", "*.xlsx *.xlsm"),
+                ("Archivos CSV", "*.csv"),
                 ("Todos los archivos", "*.*"),
             ],
         )
@@ -211,11 +213,21 @@ class ConverterApp:
 
             try:
                 output_path = self.build_output_path(input_path, extended=self.extended)
-                output_path, row_count = convert_excel_to_csv(
-                    input_path,
-                    output_path,
-                    extended=self.extended,
-                )
+                if input_path.suffix.lower() == ".csv":
+                    if not self.extended:
+                        raise RuntimeError(
+                            "Los archivos CSV solo se pueden convertir a CSV extendido."
+                        )
+                    output_path, row_count = convert_normal_csv_to_extended(
+                        input_path,
+                        output_path,
+                    )
+                else:
+                    output_path, row_count = convert_excel_to_csv(
+                        input_path,
+                        output_path,
+                        extended=self.extended,
+                    )
                 status = f"OK - {row_count} filas"
                 success_count += 1
                 self.root.after(0, self.update_item_status, index, status)

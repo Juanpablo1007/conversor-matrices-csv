@@ -4,7 +4,7 @@ Aplicacion en Python para convertir matrices de errores en Excel (`.xlsx` o `.xl
 
 El proyecto incluye:
 
-- Una interfaz grafica para seleccionar matrices y generar CSV sin escribir comandos.
+- Una interfaz grafica para seleccionar matrices Excel o CSV normales y generar los archivos de salida.
 - Un modo por terminal para automatizar conversiones.
 - Una version normal del CSV.
 - Una version extendida del CSV con la columna `stage_type`.
@@ -68,11 +68,14 @@ py excel_a_csv_gui.py
 Pasos:
 
 1. Haz clic en **Agregar matrices**.
-2. Selecciona uno o varios archivos Excel.
+2. Selecciona uno o varios archivos Excel o CSV normales.
 3. Opcionalmente, elige una carpeta de salida.
 4. Haz clic en **CSV normal** o **CSV extendido**.
 
 Si no eliges carpeta de salida, el CSV se guarda junto al Excel original.
+
+Los archivos CSV de entrada solo pueden procesarse con **CSV extendido**. Puedes
+mezclar archivos Excel y CSV normales en la misma lista.
 
 Ejemplo:
 
@@ -100,6 +103,12 @@ Generar la version extendida:
 
 ```bash
 python excel_a_csv.py "ruta/al/archivo.xlsx" --extendido
+```
+
+Generar la version extendida a partir de un CSV normal:
+
+```bash
+python excel_a_csv.py "ruta/al/archivo.csv" --extendido
 ```
 
 Forzar una hoja especifica:

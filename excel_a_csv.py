@@ -152,6 +152,121 @@ def write_csv(output_path, rows, columns):
             csv_file.write("\n")
 
 
+def parse_csv_line(line):
+    fields = []
+    current = []
+    in_quotes = False
+
+    for index, character in enumerate(line.rstrip("\r\n")):
+        if character == '"':
+            backslash_count = 0
+            previous_index = index - 1
+            while previous_index >= 0 and line[previous_index] == "\\":
+                backslash_count += 1
+                previous_index -= 1
+
+            if backslash_count % 2:
+                current.append(character)
+            else:
+                in_quotes = not in_quotes
+        elif character == "," and not in_quotes:
+            fields.append("".join(current))
+            current = []
+        else:
+            current.append(character)
+
+    if in_quotes:
+        raise ValueError("Se encontro una fila con comillas sin cerrar.")
+
+    fields.append("".join(current))
+    return fields
+
+
+def build_extended_row(source_row):
+    output_row = {column: "" for column in EXTENDED_OUTPUT_COLUMNS}
+    output_row["stage_type"] = "PILOTO"
+
+    for column in EXTENDED_OUTPUT_COLUMNS:
+        if column in source_row and column != "stage_type":
+            output_row[column] = clean_cell(source_row[column])
+
+    output_row["itc_homologated_code"] = normalize_itc_homologated_code(
+        output_row["itc_homologated_code"]
+    )
+
+    if output_row["response_type"].strip().upper() == "ALERT":
+        output_row["response_type"] = "WARNING"
+
+    for column in EXTENDED_UPPERCASE_COLUMNS:
+        output_row[column] = output_row[column].upper()
+
+    return output_row
+
+
+def convert_normal_csv_to_extended(input_path, output_path=None):
+    input_path = Path(input_path)
+    if output_path is None:
+        output_path = input_path.with_name(f"{input_path.stem}_extendido.csv")
+    else:
+        output_path = Path(output_path)
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"No existe el archivo de entrada: {input_path}")
+
+    try:
+        with input_path.open("r", encoding="utf-8-sig", newline="") as csv_file:
+            lines = csv_file.readlines()
+    except Exception as exc:
+        raise RuntimeError(f"No se pudo leer el CSV '{input_path}': {exc}") from exc
+
+    if not lines:
+        raise RuntimeError("El CSV de entrada esta vacio.")
+
+    try:
+        headers = [header.strip() for header in parse_csv_line(lines[0])]
+        normalized_headers = [normalize_column_name(header) for header in headers]
+        output_header_map = {
+            normalize_column_name(column): column
+            for column in OUTPUT_COLUMNS
+        }
+        source_columns = [
+            output_header_map.get(normalized_header, "")
+            for normalized_header in normalized_headers
+        ]
+
+        if not any(source_columns):
+            raise ValueError("No se encontraron columnas del formato CSV normal.")
+
+        output_rows = []
+        for line_number, line in enumerate(lines[1:], start=2):
+            if not line.strip():
+                continue
+
+            values = parse_csv_line(line)
+            if len(values) != len(headers):
+                raise ValueError(
+                    f"La fila {line_number} tiene {len(values)} campos; "
+                    f"se esperaban {len(headers)}."
+                )
+
+            source_row = {
+                source_column: value
+                for source_column, value in zip(source_columns, values)
+                if source_column
+            }
+            output_rows.append(build_extended_row(source_row))
+    except ValueError as exc:
+        raise RuntimeError(f"El CSV normal no tiene un formato valido: {exc}") from exc
+
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        write_csv(output_path, output_rows, EXTENDED_OUTPUT_COLUMNS)
+    except Exception as exc:
+        raise RuntimeError(f"No se pudo escribir el CSV '{output_path}': {exc}") from exc
+
+    return output_path, len(output_rows)
+
+
 def expected_column_count(columns):
     normalized_columns = {normalize_column_name(column) for column in columns}
     expected_columns = {normalize_column_name(column) for column in INPUT_TO_OUTPUT}
@@ -275,12 +390,8 @@ def convert_excel_to_csv(input_path, output_path=None, sheet_name=None, extended
                 clean_cell(row[itc_fallback_column])
             )
 
-        if extended and output_row["response_type"].strip().upper() == "ALERT":
-            output_row["response_type"] = "WARNING"
-
         if extended:
-            for column in EXTENDED_UPPERCASE_COLUMNS:
-                output_row[column] = output_row[column].upper()
+            output_row = build_extended_row(output_row)
 
         output_rows.append(output_row)
 
@@ -319,12 +430,23 @@ def main():
     args = parse_args()
 
     try:
-        output_path, row_count = convert_excel_to_csv(
-            args.entrada,
-            args.salida,
-            sheet_name=args.hoja,
-            extended=args.extendido,
-        )
+        input_path = Path(args.entrada)
+        if input_path.suffix.lower() == ".csv":
+            if not args.extendido:
+                raise RuntimeError(
+                    "Un CSV de entrada solo se puede convertir usando --extendido."
+                )
+            output_path, row_count = convert_normal_csv_to_extended(
+                input_path,
+                args.salida,
+            )
+        else:
+            output_path, row_count = convert_excel_to_csv(
+                input_path,
+                args.salida,
+                sheet_name=args.hoja,
+                extended=args.extendido,
+            )
     except (FileNotFoundError, RuntimeError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
