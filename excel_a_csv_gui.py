@@ -4,7 +4,11 @@ from tkinter import BOTH, END, LEFT, RIGHT, X, filedialog, messagebox
 from tkinter import Tk
 from tkinter import ttk
 
-from excel_a_csv import convert_excel_to_csv, convert_normal_csv_to_extended
+from excel_a_csv import (
+    convert_excel_to_csv,
+    convert_excel_to_extended_excel,
+    convert_normal_csv_to_extended,
+)
 
 
 class ConverterApp:
@@ -17,7 +21,7 @@ class ConverterApp:
         self.files = []
         self.output_folder = None
         self.is_running = False
-        self.extended = False
+        self.conversion_type = "csv_normal"
 
         self._configure_style()
         self._build_ui()
@@ -59,16 +63,23 @@ class ConverterApp:
             actions,
             text="CSV normal",
             style="Accent.TButton",
-            command=lambda: self.start_conversion(extended=False),
+            command=lambda: self.start_conversion("csv_normal"),
         )
         self.convert_button.pack(side=RIGHT)
         self.extended_button = ttk.Button(
             actions,
             text="CSV extendido",
             style="Accent.TButton",
-            command=lambda: self.start_conversion(extended=True),
+            command=lambda: self.start_conversion("csv_extended"),
         )
         self.extended_button.pack(side=RIGHT, padx=(0, 8))
+        self.extended_excel_button = ttk.Button(
+            actions,
+            text="Excel extendido",
+            style="Accent.TButton",
+            command=lambda: self.start_conversion("excel_extended"),
+        )
+        self.extended_excel_button.pack(side=RIGHT, padx=(0, 8))
 
         list_frame = ttk.Frame(main)
         list_frame.pack(fill=BOTH, expand=True)
@@ -97,7 +108,7 @@ class ConverterApp:
         self.output_button.pack(side=LEFT)
         self.output_label = ttk.Label(
             output_frame,
-            text="Salida: junto a cada Excel",
+            text="Salida: junto a cada archivo",
             style="Text.TLabel",
         )
         self.output_label.pack(side=LEFT, padx=(12, 0), fill=X, expand=True)
@@ -180,9 +191,9 @@ class ConverterApp:
             return
 
         self.output_folder = None
-        self.output_label.configure(text="Salida: junto a cada Excel")
+        self.output_label.configure(text="Salida: junto a cada archivo")
 
-    def start_conversion(self, extended=False):
+    def start_conversion(self, conversion_type="csv_normal"):
         if self.is_running:
             return
 
@@ -191,12 +202,15 @@ class ConverterApp:
             return
 
         self.is_running = True
-        self.extended = extended
+        self.conversion_type = conversion_type
         self.convert_button.configure(state="disabled")
         self.extended_button.configure(state="disabled")
+        self.extended_excel_button.configure(state="disabled")
         self.set_controls_state("disabled")
         self.progress.configure(value=0, maximum=len(self.files))
-        if extended:
+        if conversion_type == "excel_extended":
+            self.status_label.configure(text="Generando Excel extendido...", style="Muted.TLabel")
+        elif conversion_type == "csv_extended":
             self.status_label.configure(text="Generando version extendida...", style="Muted.TLabel")
         else:
             self.status_label.configure(text="Convirtiendo matrices...", style="Muted.TLabel")
@@ -212,9 +226,18 @@ class ConverterApp:
             self.root.after(0, self.update_item_status, index, "Convirtiendo")
 
             try:
-                output_path = self.build_output_path(input_path, extended=self.extended)
-                if input_path.suffix.lower() == ".csv":
-                    if not self.extended:
+                output_path = self.build_output_path(input_path, self.conversion_type)
+                if self.conversion_type == "excel_extended":
+                    if input_path.suffix.lower() == ".csv":
+                        raise RuntimeError(
+                            "Los archivos CSV no se pueden convertir a Excel extendido."
+                        )
+                    output_path, row_count = convert_excel_to_extended_excel(
+                        input_path,
+                        output_path,
+                    )
+                elif input_path.suffix.lower() == ".csv":
+                    if self.conversion_type != "csv_extended":
                         raise RuntimeError(
                             "Los archivos CSV solo se pueden convertir a CSV extendido."
                         )
@@ -226,7 +249,7 @@ class ConverterApp:
                     output_path, row_count = convert_excel_to_csv(
                         input_path,
                         output_path,
-                        extended=self.extended,
+                        extended=self.conversion_type == "csv_extended",
                     )
                 status = f"OK - {row_count} filas"
                 success_count += 1
@@ -239,11 +262,17 @@ class ConverterApp:
 
         self.root.after(0, self.finish_conversion, success_count, error_count)
 
-    def build_output_path(self, input_path, extended=False):
-        if self.output_folder is None and not extended:
+    def build_output_path(self, input_path, conversion_type):
+        if self.output_folder is None and conversion_type == "csv_normal":
             return None
 
-        file_name = f"{input_path.stem}_extendido.csv" if extended else f"{input_path.stem}.csv"
+        if conversion_type == "excel_extended":
+            file_name = f"{input_path.stem}_extendido.xlsx"
+        elif conversion_type == "csv_extended":
+            file_name = f"{input_path.stem}_extendido.csv"
+        else:
+            file_name = f"{input_path.stem}.csv"
+
         if self.output_folder is None:
             return input_path.with_name(file_name)
         return self.output_folder / file_name
@@ -258,6 +287,7 @@ class ConverterApp:
         self.is_running = False
         self.convert_button.configure(state="normal")
         self.extended_button.configure(state="normal")
+        self.extended_excel_button.configure(state="normal")
         self.set_controls_state("normal")
 
         if error_count:
@@ -267,7 +297,7 @@ class ConverterApp:
             )
             messagebox.showwarning(
                 "Conversion terminada",
-                f"Se generaron {success_count} CSV y hubo {error_count} error(es). Revisa la columna Estado.",
+                f"Se generaron {success_count} archivo(s) y hubo {error_count} error(es). Revisa la columna Estado.",
             )
         else:
             self.status_label.configure(
@@ -276,7 +306,7 @@ class ConverterApp:
             )
             messagebox.showinfo(
                 "Conversion terminada",
-                f"Se generaron {success_count} CSV correctamente.",
+                f"Se generaron {success_count} archivo(s) correctamente.",
             )
 
     def set_controls_state(self, state):

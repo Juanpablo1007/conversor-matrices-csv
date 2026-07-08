@@ -1,6 +1,6 @@
 # Conversor de matrices de errores a CSV
 
-Aplicacion en Python para convertir matrices de errores en Excel (`.xlsx` o `.xlsm`) a archivos CSV con un formato fijo.
+Aplicacion en Python para convertir matrices de errores en Excel (`.xlsx` o `.xlsm`) a archivos CSV o Excel con formatos fijos.
 
 El proyecto incluye:
 
@@ -8,6 +8,7 @@ El proyecto incluye:
 - Un modo por terminal para automatizar conversiones.
 - Una version normal del CSV.
 - Una version extendida del CSV con la columna `stage_type`.
+- Una version extendida en Excel (`.xlsx`) a partir de una matriz Excel version 1.
 
 ## Caracteristicas
 
@@ -24,6 +25,7 @@ El proyecto incluye:
 - Permite generar una version extendida con `stage_type=PILOTO`.
 - En la version extendida, cambia `response_type=ALERT` por `response_type=WARNING`.
 - La version extendida incluye los campos de titulo, botones, enlace y categoria.
+- Puede generar un Excel extendido con las mismas columnas y reglas del CSV extendido.
 
 ## Requisitos
 
@@ -70,12 +72,26 @@ Pasos:
 1. Haz clic en **Agregar matrices**.
 2. Selecciona uno o varios archivos Excel o CSV normales.
 3. Opcionalmente, elige una carpeta de salida.
-4. Haz clic en **CSV normal** o **CSV extendido**.
+4. Haz clic en **CSV normal**, **CSV extendido** o **Excel extendido**.
 
-Si no eliges carpeta de salida, el CSV se guarda junto al Excel original.
+Si no eliges carpeta de salida, el archivo generado se guarda junto al archivo original.
 
 Los archivos CSV de entrada solo pueden procesarse con **CSV extendido**. Puedes
 mezclar archivos Excel y CSV normales en la misma lista.
+
+La opcion **Excel extendido** solo recibe archivos Excel y genera un `.xlsx`
+extendido junto al archivo original, o en la carpeta de salida que elijas.
+
+## Uso del ejecutable para Windows
+
+El ejecutable compilado se encuentra en:
+
+```text
+dist/ConversorMatrices.exe
+```
+
+Para usarlo, abre `ConversorMatrices.exe` con doble clic. No es necesario tener
+Python ni instalar las dependencias del proyecto.
 
 Ejemplo:
 
@@ -83,6 +99,7 @@ Ejemplo:
 Matriz de errores.xlsx
 Matriz de errores.csv
 Matriz de errores_extendido.csv
+Matriz de errores_extendido.xlsx
 ```
 
 ## Uso por terminal
@@ -103,6 +120,12 @@ Generar la version extendida:
 
 ```bash
 python excel_a_csv.py "ruta/al/archivo.xlsx" --extendido
+```
+
+Generar un Excel extendido a partir de un Excel version 1:
+
+```bash
+python excel_a_csv.py "ruta/al/archivo.xlsx" --excel-extendido
 ```
 
 Generar la version extendida a partir de un CSV normal:
@@ -152,7 +175,7 @@ Columnas reconocidas:
 | `link` | Enlace de redireccionamiento. Solo se exporta en la version extendida. |
 | `categoryType` | Categoria visual del mensaje. Solo se exporta en la version extendida. |
 
-Si falta una columna, el CSV se genera igual y esa columna queda vacia.
+Si falta una columna, el archivo se genera igual y esa columna queda vacia.
 
 Si `itcHomologatedCode` viene mal nombrada entre `transactionCode` y `responseType`, el programa intenta tomarla automaticamente como respaldo.
 
@@ -206,6 +229,22 @@ Valores esperados en los campos catalogados:
 | `response_type` | `SUCCESS`, `ERROR`, `WARNING`, `INFO`, `EVENTUALIDAD` |
 | `category_type` | `TOAST`, `INLINE`, `TOTALPAGE`, `PARCIALPAGE`, `MODAL`, `DATA TEXT`, `INPUT` |
 
+## Formato del Excel extendido
+
+El Excel extendido se genera con las mismas columnas y reglas de la version CSV extendida:
+
+```text
+technical_code,channel,origin,id_language,stage_type,technical_exception,user_message,message_description,type,message_type,transaction_code,itc_homologated_code,response_type,title,button_content,button_content_2,link,category_type
+```
+
+Reglas principales:
+
+- Se genera como archivo `.xlsx`.
+- `stage_type` siempre queda con valor `PILOTO`.
+- Si `response_type` es `ALERT`, se cambia a `WARNING`.
+- `itc_homologated_code` se rellena a 3 digitos si es numerico.
+- Si faltan columnas opcionales, quedan vacias.
+
 ## Archivos del proyecto
 
 | Archivo | Uso |
@@ -247,11 +286,11 @@ O en Windows:
 py -m pip install -r requirements.txt
 ```
 
-### El CSV se genero en una ruta distinta
+### El archivo se genero en una ruta distinta
 
-Si usas la interfaz y no eliges carpeta de salida, el CSV queda junto al Excel original.
+Si usas la interfaz y no eliges carpeta de salida, el archivo generado queda junto al archivo original.
 
-Si usas terminal y no pasas una ruta de salida, el CSV queda junto al Excel original.
+Si usas terminal y no pasas una ruta de salida, el archivo generado queda junto al archivo original.
 
 ## Notas
 

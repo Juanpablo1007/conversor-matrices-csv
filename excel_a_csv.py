@@ -152,6 +152,11 @@ def write_csv(output_path, rows, columns):
             csv_file.write("\n")
 
 
+def write_excel(output_path, rows, columns):
+    output_df = pd.DataFrame(rows, columns=columns)
+    output_df.to_excel(output_path, index=False, engine="openpyxl")
+
+
 def parse_csv_line(line):
     fields = []
     current = []
@@ -342,17 +347,11 @@ def read_best_sheet(input_path, sheet_name=None):
     return best_df
 
 
-def convert_excel_to_csv(input_path, output_path=None, sheet_name=None, extended=False):
+def build_rows_from_excel(input_path, sheet_name=None, extended=False):
     if pd is None:
         raise RuntimeError("No se encontro pandas. Instalalo con: pip install pandas openpyxl")
 
     input_path = Path(input_path)
-    if output_path is None:
-        suffix = "_extendido.csv" if extended else ".csv"
-        output_path = input_path.with_name(f"{input_path.stem}{suffix}")
-    else:
-        output_path = Path(output_path)
-
     if not input_path.exists():
         raise FileNotFoundError(f"No existe el archivo de entrada: {input_path}")
 
@@ -395,11 +394,50 @@ def convert_excel_to_csv(input_path, output_path=None, sheet_name=None, extended
 
         output_rows.append(output_row)
 
+    return output_rows, output_columns
+
+
+def convert_excel_to_csv(input_path, output_path=None, sheet_name=None, extended=False):
+    input_path = Path(input_path)
+    if output_path is None:
+        suffix = "_extendido.csv" if extended else ".csv"
+        output_path = input_path.with_name(f"{input_path.stem}{suffix}")
+    else:
+        output_path = Path(output_path)
+
+    output_rows, output_columns = build_rows_from_excel(
+        input_path,
+        sheet_name=sheet_name,
+        extended=extended,
+    )
+
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         write_csv(output_path, output_rows, output_columns)
     except Exception as exc:
         raise RuntimeError(f"No se pudo escribir el CSV '{output_path}': {exc}") from exc
+
+    return output_path, len(output_rows)
+
+
+def convert_excel_to_extended_excel(input_path, output_path=None, sheet_name=None):
+    input_path = Path(input_path)
+    if output_path is None:
+        output_path = input_path.with_name(f"{input_path.stem}_extendido.xlsx")
+    else:
+        output_path = Path(output_path)
+
+    output_rows, output_columns = build_rows_from_excel(
+        input_path,
+        sheet_name=sheet_name,
+        extended=True,
+    )
+
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        write_excel(output_path, output_rows, output_columns)
+    except Exception as exc:
+        raise RuntimeError(f"No se pudo escribir el Excel '{output_path}': {exc}") from exc
 
     return output_path, len(output_rows)
 
@@ -423,6 +461,11 @@ def parse_args():
         action="store_true",
         help="Genera la version extendida con la columna stage_type=PILOTO.",
     )
+    parser.add_argument(
+        "--excel-extendido",
+        action="store_true",
+        help="Genera un archivo Excel .xlsx en version extendida.",
+    )
     return parser.parse_args()
 
 
@@ -431,7 +474,21 @@ def main():
 
     try:
         input_path = Path(args.entrada)
-        if input_path.suffix.lower() == ".csv":
+        if args.extendido and args.excel_extendido:
+            raise RuntimeError("Usa solo una opcion: --extendido o --excel-extendido.")
+
+        if args.excel_extendido:
+            if input_path.suffix.lower() == ".csv":
+                raise RuntimeError(
+                    "Un CSV de entrada no se puede convertir a Excel extendido."
+                )
+            output_path, row_count = convert_excel_to_extended_excel(
+                input_path,
+                args.salida,
+                sheet_name=args.hoja,
+            )
+            output_label = "Excel generado"
+        elif input_path.suffix.lower() == ".csv":
             if not args.extendido:
                 raise RuntimeError(
                     "Un CSV de entrada solo se puede convertir usando --extendido."
@@ -440,6 +497,7 @@ def main():
                 input_path,
                 args.salida,
             )
+            output_label = "CSV generado"
         else:
             output_path, row_count = convert_excel_to_csv(
                 input_path,
@@ -447,12 +505,13 @@ def main():
                 sheet_name=args.hoja,
                 extended=args.extendido,
             )
+            output_label = "CSV generado"
     except (FileNotFoundError, RuntimeError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     print(f"Filas generadas: {row_count}")
-    print(f"CSV generado: {output_path}")
+    print(f"{output_label}: {output_path}")
 
 
 if __name__ == "__main__":
